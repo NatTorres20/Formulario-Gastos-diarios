@@ -51,28 +51,28 @@
         const transcripcion = event.results[0][0].transcript;
         resultado.textContent = "Registrando: " + transcripcion;
 
-        // extraer número de la transcripción (opcional)
+        // Extraer número (gasto)
         const numero = transcripcion.match(/\d+(\.\d+)?/g);
         const valor = numero ? numero[0] : "";
 
-        // ENVÍA LOS DATOS AL APP SCRIPT
-        fetch("https://script.google.com/macros/s/AKfycbxL4iFRwdFD9pD8i0yI1ccFnlfgNSGy_Ph3WIUiKE3q7SV06mD5RUt3GOd0-e6BFzAu/exec", {
+        // Enviar a Google Sheets
+        fetch("https://script.google.com/macros/s/AKfycbytKf1c02v78mJ7uuTJB7wIUcvu0G9-mbM_kOOCOlEk6IqXjGCAE9ekQx0kdSJ4yCiA/exec", {
           method: 'POST',
+          mode: 'no-cors',
+          headers: {
+            'Content-Type': 'application/json'
+          },
           body: JSON.stringify({
             quien: quien.value,
             transcripcion: transcripcion,
             valor: valor
-          }),
-          headers: {
-            'Content-Type': 'application/json'
-          }
+          })
         })
-        .then(response => response.text())
-        .then(data => {
-          resultado.textContent = "✅ Gasto registrado con éxito";
+        .then(() => {
+          resultado.textContent = "✅ Gasto enviado (verifica en la hoja)";
         })
         .catch(error => {
-          resultado.textContent = "❌ Error al registrar el gasto";
+          resultado.textContent = "❌ Error de red al registrar el gasto";
           console.error("Error:", error);
         });
       };
@@ -91,32 +91,3 @@
   </script>
 </body>
 </html>
-
-<script>
-function enviarGasto(nombre, mensaje) {
-  const url = 'https://script.google.com/macros/s/AKfycbxL4iFRwdFD9pD8i0yI1ccFnlfgNSGy_Ph3WIUiKE3q7SV06mD5RUt3GOd0-e6BFzAu/exec';
-  
-  const datos = new URLSearchParams();
-  datos.append("nombre", nombre);
-  datos.append("mensaje", mensaje);
-
-  fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: datos.toString(),
-  })
-  .then(response => response.text())
-  .then(result => {
-    if (result === "OK") {
-      alert("Gasto registrado correctamente");
-    } else {
-      alert("Error al registrar gasto: " + result);
-    }
-  })
-  .catch(error => {
-    alert("Error de red: " + error.message);
-  });
-}
-</script>
