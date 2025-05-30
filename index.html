@@ -56,7 +56,7 @@
         const valor = numero ? numero[0] : "";
 
         // ENVÍA LOS DATOS AL APP SCRIPT
-        fetch("https://script.google.com/macros/s/AKfycbxflQXqMobQEGcBQBk_amduVgh6072G6lbO3Vy07z2wyAfbpr4WDM2PUONa-H0FIkC_/exec", {
+        fetch("https://script.google.com/macros/s/AKfycbxL4iFRwdFD9pD8i0yI1ccFnlfgNSGy_Ph3WIUiKE3q7SV06mD5RUt3GOd0-e6BFzAu/exec", {
           method: 'POST',
           body: JSON.stringify({
             quien: quien.value,
@@ -94,7 +94,7 @@
 
 <script>
 function enviarGasto(nombre, mensaje) {
-  const url = 'https://script.google.com/macros/s/AKfycbxflQXqMobQEGcBQBk_amduVgh6072G6lbO3Vy07z2wyAfbpr4WDM2PUONa-H0FIkC_/exec';
+  const url = 'https://script.google.com/macros/s/AKfycbxL4iFRwdFD9pD8i0yI1ccFnlfgNSGy_Ph3WIUiKE3q7SV06mD5RUt3GOd0-e6BFzAu/exec';
   
   const datos = new URLSearchParams();
   datos.append("nombre", nombre);
