@@ -1,43 +1,74 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Registro de Gastos</title>
   <style>
-    body {
-      font-family: sans-serif;
-      text-align: center;
-      padding: 40px;
-    }
-    button {
-      font-size: 24px;
-      padding: 15px;
-      border-radius: 10px;
-    }
-    #resultado {
-      margin-top: 20px;
-      font-size: 18px;
-    }
+    body { font-family: sans-serif; text-align: center; padding: 40px; }
+    button { font-size: 24px; padding: 15px; border-radius: 10px; }
+    #resultado { margin-top: 20px; font-size: 18px; }
   </style>
 </head>
 <body>
   <h1>¿Qué gastos hiciste hoy?</h1>
 
-  <label for="quien">¿Quién habla?</label><br>
+  <label for="quien">¿Quién habla?</label><br />
   <select id="quien">
     <option value="mamá">Mamá</option>
     <option value="papá">Papá</option>
-  </select><br><br>
+  </select><br /><br />
 
   <button id="grabar">🎤 Grabar</button>
-
   <p id="resultado"></p>
 
   <script>
     const grabar = document.getElementById("grabar");
     const resultado = document.getElementById("resultado");
     const quien = document.getElementById("quien");
+
+    // Diccionario para convertir texto numérico a número
+    const palabrasNumero = {
+      uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10,
+      once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, dieciséis: 16, diecisiete: 17, dieciocho: 18,
+      diecinueve: 19, veinte: 20, treinta: 30, cuarenta: 40, cincuenta: 50, sesenta: 60, setenta: 70,
+      ochenta: 80, noventa: 90, cien: 100, ciento: 100, mil: 1000, milenio: 1000, millón: 1000000,
+      millones: 1000000
+    };
+
+    function textoANumero(texto) {
+      texto = texto.toLowerCase().replace(/[.,]/g, " ").split(" ");
+      let total = 0, actual = 0;
+
+      texto.forEach(palabra => {
+        let valor = palabrasNumero[palabra];
+        if (valor >= 1000) {
+          actual *= valor;
+          total += actual;
+          actual = 0;
+        } else if (valor) {
+          actual += valor;
+        } else if (!isNaN(palabra)) {
+          total += parseInt(palabra);
+        }
+      });
+
+      return total + actual;
+    }
+
+    function extraerValores(frase) {
+      const partes = frase.split(/(?=\d+[.,]?\d*|\b(?:mil|millón|mil pesos|mil pesos))/gi);
+      return partes.map(parte => {
+        const matchNum = parte.match(/\d+[.,]?\d*|(?:\w+\s)*(mil|millón|mil pesos)/gi);
+        let valor = 0;
+        if (matchNum) {
+          const texto = matchNum.join(" ");
+          const limpio = texto.replace(/pesos?/gi, "").trim();
+          valor = textoANumero(limpio);
+        }
+        return { texto: parte.trim(), valor };
+      }).filter(v => v.valor > 0);
+    }
 
     let recognition;
 
@@ -51,33 +82,30 @@
         const transcripcion = event.results[0][0].transcript;
         resultado.textContent = "Registrando: " + transcripcion;
 
-        // Extraer número (gasto)
-        const numero = transcripcion.match(/\d+(\.\d+)?/g);
-        const valor = numero ? numero[0] : "";
+        const registros = extraerValores(transcripcion);
 
-        // Enviar a Google Sheets
-        fetch("https://script.google.com/macros/s/AKfycbzeWWLkZwpvConI01aY6ugb0mY57Cj1cPDRLusdNL2C0sXVyIAtx1Fl8DLE8y6-_d1R/exec", {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            quien: quien.value,
-            transcripcion: transcripcion,
-            valor: valor
-          })
-        })
-        .then(() => {
-          resultado.textContent = "✅ Gasto enviado (verifica en la hoja)";
-        })
-        .catch(error => {
-          resultado.textContent = "❌ Error de red al registrar el gasto";
-          console.error("Error:", error);
+        if (registros.length === 0) {
+          resultado.textContent = "❌ No se detectaron valores claros.";
+          return;
+        }
+
+        registros.forEach(r => {
+          fetch("https://script.google.com/macros/s/AKfycbxL4iFRwdFD9pD8i0yI1ccFnlfgNSGy_Ph3WIUiKE3q7SV06mD5RUt3GOd0-e6BFzAu/exec", {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              quien: quien.value,
+              transcripcion: r.texto,
+              valor: r.valor
+            })
+          });
         });
+
+        resultado.textContent = "✅ Se registraron " + registros.length + " gasto(s)";
       };
 
-      recognition.onerror = function(event) {
+      recognition.onerror = function() {
         resultado.textContent = "❌ Error de reconocimiento de voz";
       };
     } else {
