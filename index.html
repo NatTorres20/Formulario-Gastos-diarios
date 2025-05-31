@@ -40,40 +40,69 @@
     const quien = document.getElementById("quien");
 
     // Conversor de palabras a números usando map básico y expresiones regulares
-    function textoANumero(texto) {
-      const mapa = {
-        'uno': 1, 'una': 1, 'dos': 2, 'tres': 3, 'cuatro': 4, 'cinco': 5,
-        'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9, 'diez': 10,
-        'once': 11, 'doce': 12, 'trece': 13, 'catorce': 14, 'quince': 15,
-        'dieciséis': 16, 'diecisiete': 17, 'dieciocho': 18, 'diecinueve': 19,
-        'veinte': 20, 'treinta': 30, 'cuarenta': 40, 'cincuenta': 50,
-        'sesenta': 60, 'setenta': 70, 'ochenta': 80, 'noventa': 90,
-        'cien': 100, 'ciento': 100, 'doscientos': 200, 'trescientos': 300,
-        'cuatrocientos': 400, 'quinientos': 500, 'seiscientos': 600,
-        'setecientos': 700, 'ochocientos': 800, 'novecientos': 900,
-        'mil': 1000, 'millón': 1000000, 'millones': 1000000
-      };
+function normalizarTexto(texto) {
+  // Corrige palabras pegadas típicas como "veintemil" → "veinte mil"
+  const correcciones = {
+    'veintemil': 'veinte mil',
+    'treintamil': 'treinta mil',
+    'cuarentamil': 'cuarenta mil',
+    'cincuentamil': 'cincuenta mil',
+    'sesentamil': 'sesenta mil',
+    'setentamil': 'setenta mil',
+    'ochentamil': 'ochenta mil',
+    'noventamil': 'noventa mil',
+    'diezmil': 'diez mil',
+    'docemil': 'doce mil',
+    'once mil': 'once mil',
+    'milquinientos': 'mil quinientos',
+    'mildoscientos': 'mil doscientos'
+  };
 
-      let palabras = texto.toLowerCase().replace(/ y /g, ' ').split(/\s+/);
-      let total = 0, actual = 0;
+  let resultado = texto.toLowerCase();
+  for (let palabra in correcciones) {
+    const expresion = new RegExp(`\\b${palabra}\\b`, 'g');
+    resultado = resultado.replace(expresion, correcciones[palabra]);
+  }
+  return resultado;
+}
 
-      for (let palabra of palabras) {
-        let valor = mapa[palabra];
-        if (valor != null) {
-          if (valor === 1000 || valor === 1000000) {
-            actual = (actual || 1) * valor;
-            total += actual;
-            actual = 0;
-          } else {
-            actual += valor;
-          }
-        } else if (palabra.match(/^\d+$/)) {
-          total += parseInt(palabra);
-        }
+function textoANumero(texto) {
+  texto = normalizarTexto(texto); // 👈 Aplica normalización antes de convertir
+
+  const mapa = {
+    'uno': 1, 'una': 1, 'dos': 2, 'tres': 3, 'cuatro': 4, 'cinco': 5,
+    'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9, 'diez': 10,
+    'once': 11, 'doce': 12, 'trece': 13, 'catorce': 14, 'quince': 15,
+    'dieciséis': 16, 'diecisiete': 17, 'dieciocho': 18, 'diecinueve': 19,
+    'veinte': 20, 'treinta': 30, 'cuarenta': 40, 'cincuenta': 50,
+    'sesenta': 60, 'setenta': 70, 'ochenta': 80, 'noventa': 90,
+    'cien': 100, 'ciento': 100, 'doscientos': 200, 'trescientos': 300,
+    'cuatrocientos': 400, 'quinientos': 500, 'seiscientos': 600,
+    'setecientos': 700, 'ochocientos': 800, 'novecientos': 900,
+    'mil': 1000, 'millón': 1000000, 'millones': 1000000
+  };
+
+  let palabras = texto.toLowerCase().replace(/ y /g, ' ').split(/\s+/);
+  let total = 0, actual = 0;
+
+  for (let palabra of palabras) {
+    let valor = mapa[palabra];
+    if (valor != null) {
+      if (valor === 1000 || valor === 1000000) {
+        actual = (actual || 1) * valor;
+        total += actual;
+        actual = 0;
+      } else {
+        actual += valor;
       }
-
-      return total + actual;
+    } else if (palabra.match(/^\d+$/)) {
+      total += parseInt(palabra);
     }
+  }
+
+  return total + actual;
+}
+
 
     // Dividir en múltiples gastos
     function dividirGastos(transcripcion) {
