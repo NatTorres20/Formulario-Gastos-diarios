@@ -1,25 +1,37 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Registro de Gastos</title>
   <style>
-    body { font-family: sans-serif; text-align: center; padding: 40px; }
-    button { font-size: 24px; padding: 15px; border-radius: 10px; }
-    #resultado { margin-top: 20px; font-size: 18px; }
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 40px;
+    }
+    button {
+      font-size: 24px;
+      padding: 15px;
+      border-radius: 10px;
+    }
+    #resultado {
+      margin-top: 20px;
+      font-size: 18px;
+    }
   </style>
 </head>
 <body>
   <h1>¿Qué gastos hiciste hoy?</h1>
 
-  <label for="quien">¿Quién habla?</label><br />
+  <label for="quien">¿Quién habla?</label><br>
   <select id="quien">
     <option value="mamá">Mamá</option>
     <option value="papá">Papá</option>
-  </select><br /><br />
+  </select><br><br>
 
   <button id="grabar">🎤 Grabar</button>
+
   <p id="resultado"></p>
 
   <script>
@@ -27,50 +39,47 @@
     const resultado = document.getElementById("resultado");
     const quien = document.getElementById("quien");
 
-    const palabrasNumero = {
-      uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10,
-      once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, dieciséis: 16, diecisiete: 17, dieciocho: 18,
-      diecinueve: 19, veinte: 20, treinta: 30, cuarenta: 40, cincuenta: 50, sesenta: 60, setenta: 70,
-      ochenta: 80, noventa: 90, cien: 100, ciento: 100, mil: 1000, millón: 1000000, millones: 1000000
-    };
+    // Conversor de palabras a números usando map básico y expresiones regulares
+    function textoANumero(texto) {
+      const mapa = {
+        'uno': 1, 'una': 1, 'dos': 2, 'tres': 3, 'cuatro': 4, 'cinco': 5,
+        'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9, 'diez': 10,
+        'once': 11, 'doce': 12, 'trece': 13, 'catorce': 14, 'quince': 15,
+        'dieciséis': 16, 'diecisiete': 17, 'dieciocho': 18, 'diecinueve': 19,
+        'veinte': 20, 'treinta': 30, 'cuarenta': 40, 'cincuenta': 50,
+        'sesenta': 60, 'setenta': 70, 'ochenta': 80, 'noventa': 90,
+        'cien': 100, 'ciento': 100, 'doscientos': 200, 'trescientos': 300,
+        'cuatrocientos': 400, 'quinientos': 500, 'seiscientos': 600,
+        'setecientos': 700, 'ochocientos': 800, 'novecientos': 900,
+        'mil': 1000, 'millón': 1000000, 'millones': 1000000
+      };
 
-    function textoANumero(frase) {
-      let palabras = frase.toLowerCase().replace(/[.,]/g, " ").split(" ");
+      let palabras = texto.toLowerCase().replace(/ y /g, ' ').split(/\s+/);
       let total = 0, actual = 0;
 
       for (let palabra of palabras) {
-        if (!isNaN(palabra)) {
-          total += parseInt(palabra);
-        } else if (palabrasNumero[palabra]) {
-          let valor = palabrasNumero[palabra];
+        let valor = mapa[palabra];
+        if (valor != null) {
           if (valor === 1000 || valor === 1000000) {
-            if (actual === 0) actual = 1;
-            total += actual * valor;
+            actual = (actual || 1) * valor;
+            total += actual;
             actual = 0;
           } else {
             actual += valor;
           }
+        } else if (palabra.match(/^\d+$/)) {
+          total += parseInt(palabra);
         }
       }
 
       return total + actual;
     }
 
-    function extraerValores(frase) {
-      const valoresDetectados = [];
-      const regex = /(\d{1,3}(?:[.,]\d{3})*|\d+|(?:\w+\s){0,4}(mil|millón|mil pesos|mil))/gi;
-      let coincidencias = frase.match(regex);
-
-      if (coincidencias) {
-        coincidencias.forEach(c => {
-          const valor = textoANumero(c);
-          if (valor > 0) {
-            valoresDetectados.push({ texto: c.trim(), valor });
-          }
-        });
-      }
-
-      return valoresDetectados;
+    // Dividir en múltiples gastos
+    function dividirGastos(transcripcion) {
+      // Coincide con expresiones como 20000, 20 mil, veinte mil, etc.
+      const partes = transcripcion.split(/(?=\d{3,}|(?:\d+\s?mil)|(?:[a-z]+\s?mil))/i);
+      return partes.map(parte => parte.trim()).filter(p => p);
     }
 
     let recognition;
@@ -83,32 +92,30 @@
 
       recognition.onresult = function(event) {
         const transcripcion = event.results[0][0].transcript;
-        resultado.textContent = "Procesando: " + transcripcion;
+        resultado.textContent = "Registrando: " + transcripcion;
 
-        const gastos = extraerValores(transcripcion);
+        const gastos = dividirGastos(transcripcion);
 
-        if (gastos.length === 0) {
-          resultado.textContent = "❌ No se detectaron valores.";
-          return;
-        }
-
-        gastos.forEach(gasto => {
+        gastos.forEach(parte => {
+          const valorNumerico = textoANumero(parte);
           fetch("https://script.google.com/macros/s/AKfycbySbHcs5OVqQAYUYGLwhmGJ9DFzetT3yxAJLItAwwcxx67yJtyyUS-KvdnwTJPvamLv/exec", {
             method: 'POST',
             mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json'
+            },
             body: JSON.stringify({
               quien: quien.value,
-              transcripcion: gasto.texto,
-              valor: gasto.valor
+              transcripcion: parte,
+              valor: valorNumerico
             })
           });
         });
 
-        resultado.textContent = `✅ Se registraron ${gastos.length} gasto(s).`;
+        resultado.textContent = "✅ Gasto(s) enviado(s)";
       };
 
-      recognition.onerror = function() {
+      recognition.onerror = function(event) {
         resultado.textContent = "❌ Error de reconocimiento de voz";
       };
     } else {
@@ -122,3 +129,4 @@
   </script>
 </body>
 </html>
+
