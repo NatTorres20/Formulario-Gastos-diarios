@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Registro de Gastos</title>
   <style>
     body {
@@ -23,12 +23,15 @@
 </head>
 <body>
   <h1>¿Qué gastos hiciste hoy?</h1>
+
   <label for="quien">¿Quién habla?</label><br>
   <select id="quien">
     <option value="mamá">Mamá</option>
     <option value="papá">Papá</option>
   </select><br><br>
+
   <button id="grabar">🎤 Grabar</button>
+
   <p id="resultado"></p>
 
   <script>
@@ -36,63 +39,71 @@
     const resultado = document.getElementById("resultado");
     const quien = document.getElementById("quien");
 
+    // Utilidad para convertir texto a número
     function textoANumero(texto) {
-      const normalizado = texto
-        .toLowerCase()
-        .replace(/mil\s*(?=\D|$)/g, " mil")
-        .replace(/\s+/g, " ")
-        .replace(/[^a-zA-Záéíóúñ0-9\s]/g, "")
-        .trim();
-
-      const palabras = normalizado.split(" ");
-
       const mapa = {
-        uno: 1, una: 1, un: 1,
-        dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9,
-        diez: 10, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15,
-        dieciséis: 16, dieciseis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19,
-        veinte: 20, veintiuno: 21, veintidós: 22, veintidos: 22, veintitrés: 23, veintitres: 23,
-        veinticuatro: 24, veinticinco: 25, veintiséis: 26, veintiseis: 26, veintisiete: 27,
-        veintiocho: 28, veintinueve: 29, treinta: 30, cuarenta: 40, cincuenta: 50,
-        sesenta: 60, setenta: 70, ochenta: 80, noventa: 90, cien: 100, ciento: 100,
-        doscientos: 200, trescientos: 300, cuatrocientos: 400, quinientos: 500,
-        seiscientos: 600, setecientos: 700, ochocientos: 800, novecientos: 900,
-        mil: 1000
+        cero: 0, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9,
+        diez: 10, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, veinte: 20, treinta: 30, cuarenta: 40,
+        cincuenta: 50, sesenta: 60, setenta: 70, ochenta: 80, noventa: 90, cien: 100, ciento: 100,
+        mil: 1000, milo: 1000, milos: 1000, milésimo: 1000
       };
 
-      let total = 0, temp = 0;
-      for (let palabra of palabras) {
-        const valor = mapa[palabra];
-        if (valor !== undefined) {
+      texto = texto.replace(/[^a-zA-Záéíóúñ\s\d]/g, "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      texto = texto.replace(/\s+/g, " ");
+
+      let total = 0, parcial = 0;
+
+      texto.split(" ").forEach(palabra => {
+        if (!isNaN(parseInt(palabra))) {
+          parcial += parseInt(palabra);
+        } else if (mapa[palabra] !== undefined) {
+          const valor = mapa[palabra];
           if (valor === 1000) {
-            temp = temp === 0 ? 1000 : temp * 1000;
-            total += temp;
-            temp = 0;
+            if (parcial === 0) parcial = 1;
+            parcial *= 1000;
+            total += parcial;
+            parcial = 0;
           } else {
-            temp += valor;
+            parcial += valor;
           }
         }
-      }
-      return total + temp;
+      });
+
+      return total + parcial;
     }
 
-    function extraerValorYConcepto(transcripcion) {
-      const partes = transcripcion.toLowerCase().split(/(?=\d|mil|cien|veinte|treinta|cuarenta|cincuenta|sesenta|setenta|ochenta|noventa|diez|once|doce)/);
-      let valor = "";
-      let concepto = transcripcion;
-      for (let parte of partes) {
-        const num = textoANumero(parte);
-        if (num >= 100) {
+    // Separar texto y números
+    function extraerGastos(texto) {
+      const regex = /((\d{1,3}(?:[.,]\d{3})+|\d+)|([a-záéíóúñ]+(?:\s[a-záéíóúñ]+)*))/gi;
+      const partes = texto.match(regex);
+      const resultados = [];
+
+      let valor = 0;
+      let concepto = "";
+
+      for (let i = 0; i < partes.length; i++) {
+        const actual = partes[i].trim();
+        const num = textoANumero(actual);
+        if (num > 0) {
+          if (concepto) {
+            resultados.push({ valor, texto: concepto.trim() });
+          }
           valor = num;
-          concepto = transcripcion.replace(parte, "").trim();
-          break;
+          concepto = "";
+        } else {
+          concepto += " " + actual;
         }
       }
-      return { valor: valor.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","), concepto };
+
+      if (valor > 0) {
+        resultados.push({ valor, texto: concepto.trim() });
+      }
+
+      return resultados;
     }
 
+    // Procesar voz
     let recognition;
-
     if ('webkitSpeechRecognition' in window) {
       recognition = new webkitSpeechRecognition();
       recognition.lang = "es-ES";
@@ -101,22 +112,32 @@
 
       recognition.onresult = function(event) {
         const transcripcion = event.results[0][0].transcript;
-        const { valor, concepto } = extraerValorYConcepto(transcripcion);
+        resultado.textContent = "🔍 Procesando: " + transcripcion;
 
-        resultado.textContent = `Registrando: $${valor} - ${concepto}`;
+        const gastos = extraerGastos(transcripcion);
 
-        fetch("https://script.google.com/macros/s/AKfycbxj_rcDcgtnn6MjpVkYZxtclSTJbNiYJNc9hgy8cYn0wPpBSdwPAIfL-4SBpuj0t1pQ/exec", {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            quien: quien.value,
-            transcripcion: concepto,
-            valor: valor.replace(/\,/g, "") // sin comas para almacenar como número puro
-          })
+        if (gastos.length === 0) {
+          resultado.textContent = "❌ No se detectó ningún valor en el audio.";
+          return;
+        }
+
+        // Enviar cada gasto como fila separada
+        gastos.forEach(gasto => {
+          fetch("https://script.google.com/macros/s/AKfycbxj_rcDcgtnn6MjpVkYZxtclSTJbNiYJNc9hgy8cYn0wPpBSdwPAIfL-4SBpuj0t1pQ/exec", {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              quien: quien.value,
+              valor: gasto.valor,
+              transcripcion: gasto.texto
+            })
+          });
         });
+
+        resultado.textContent = "✅ Gastos enviados. Verifica en la hoja.";
       };
 
       recognition.onerror = function(event) {
@@ -133,3 +154,4 @@
   </script>
 </body>
 </html>
+
