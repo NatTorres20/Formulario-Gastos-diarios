@@ -23,21 +23,73 @@
 </head>
 <body>
   <h1>¿Qué gastos hiciste hoy?</h1>
-
   <label for="quien">¿Quién habla?</label><br>
   <select id="quien">
     <option value="mamá">Mamá</option>
     <option value="papá">Papá</option>
   </select><br><br>
-
   <button id="grabar">🎤 Grabar</button>
-
   <p id="resultado"></p>
 
   <script>
     const grabar = document.getElementById("grabar");
     const resultado = document.getElementById("resultado");
     const quien = document.getElementById("quien");
+
+    function textoANumero(texto) {
+      const normalizado = texto
+        .toLowerCase()
+        .replace(/mil\s*(?=\D|$)/g, " mil")
+        .replace(/\s+/g, " ")
+        .replace(/[^a-zA-Záéíóúñ0-9\s]/g, "")
+        .trim();
+
+      const palabras = normalizado.split(" ");
+
+      const mapa = {
+        uno: 1, una: 1, un: 1,
+        dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9,
+        diez: 10, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15,
+        dieciséis: 16, dieciseis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19,
+        veinte: 20, veintiuno: 21, veintidós: 22, veintidos: 22, veintitrés: 23, veintitres: 23,
+        veinticuatro: 24, veinticinco: 25, veintiséis: 26, veintiseis: 26, veintisiete: 27,
+        veintiocho: 28, veintinueve: 29, treinta: 30, cuarenta: 40, cincuenta: 50,
+        sesenta: 60, setenta: 70, ochenta: 80, noventa: 90, cien: 100, ciento: 100,
+        doscientos: 200, trescientos: 300, cuatrocientos: 400, quinientos: 500,
+        seiscientos: 600, setecientos: 700, ochocientos: 800, novecientos: 900,
+        mil: 1000
+      };
+
+      let total = 0, temp = 0;
+      for (let palabra of palabras) {
+        const valor = mapa[palabra];
+        if (valor !== undefined) {
+          if (valor === 1000) {
+            temp = temp === 0 ? 1000 : temp * 1000;
+            total += temp;
+            temp = 0;
+          } else {
+            temp += valor;
+          }
+        }
+      }
+      return total + temp;
+    }
+
+    function extraerValorYConcepto(transcripcion) {
+      const partes = transcripcion.toLowerCase().split(/(?=\d|mil|cien|veinte|treinta|cuarenta|cincuenta|sesenta|setenta|ochenta|noventa|diez|once|doce)/);
+      let valor = "";
+      let concepto = transcripcion;
+      for (let parte of partes) {
+        const num = textoANumero(parte);
+        if (num >= 100) {
+          valor = num;
+          concepto = transcripcion.replace(parte, "").trim();
+          break;
+        }
+      }
+      return { valor: valor.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","), concepto };
+    }
 
     let recognition;
 
@@ -49,9 +101,9 @@
 
       recognition.onresult = function(event) {
         const transcripcion = event.results[0][0].transcript;
-        resultado.textContent = "Registrando: " + transcripcion;
+        const { valor, concepto } = extraerValorYConcepto(transcripcion);
 
-        const valorEstimado = textoANumero(transcripcion);
+        resultado.textContent = `Registrando: $${valor} - ${concepto}`;
 
         fetch("https://script.google.com/macros/s/AKfycbxj_rcDcgtnn6MjpVkYZxtclSTJbNiYJNc9hgy8cYn0wPpBSdwPAIfL-4SBpuj0t1pQ/exec", {
           method: 'POST',
@@ -61,12 +113,10 @@
           },
           body: JSON.stringify({
             quien: quien.value,
-            transcripcion: transcripcion,
-            valor: valorEstimado
+            transcripcion: concepto,
+            valor: valor.replace(/\,/g, "") // sin comas para almacenar como número puro
           })
         });
-
-        resultado.textContent = "✅ Gasto enviado (verifica en la hoja)";
       };
 
       recognition.onerror = function(event) {
@@ -77,72 +127,9 @@
     }
 
     grabar.addEventListener("click", () => {
-      resultado.textContent = "🎤 Escuchando...";
+      resultado.textContent = "🎙️ Escuchando...";
       recognition.start();
     });
-
-    function normalizarTexto(texto) {
-      const correcciones = {
-        'veintemil': 'veinte mil',
-        'treintamil': 'treinta mil',
-        'cuarentamil': 'cuarenta mil',
-        'cincuentamil': 'cincuenta mil',
-        'sesentamil': 'sesenta mil',
-        'setentamil': 'setenta mil',
-        'ochentamil': 'ochenta mil',
-        'noventamil': 'noventa mil',
-        'diezmil': 'diez mil',
-        'docemil': 'doce mil',
-        'milquinientos': 'mil quinientos',
-        'mildoscientos': 'mil doscientos'
-      };
-
-      let resultado = texto.toLowerCase();
-      for (let palabra in correcciones) {
-        const expresion = new RegExp(`\\b${palabra}\\b`, 'g');
-        resultado = resultado.replace(expresion, correcciones[palabra]);
-      }
-      return resultado;
-    }
-
-    function textoANumero(texto) {
-      texto = normalizarTexto(texto);
-
-      const mapa = {
-        'uno': 1, 'una': 1, 'dos': 2, 'tres': 3, 'cuatro': 4, 'cinco': 5,
-        'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9, 'diez': 10,
-        'once': 11, 'doce': 12, 'trece': 13, 'catorce': 14, 'quince': 15,
-        'dieciséis': 16, 'diecisiete': 17, 'dieciocho': 18, 'diecinueve': 19,
-        'veinte': 20, 'treinta': 30, 'cuarenta': 40, 'cincuenta': 50,
-        'sesenta': 60, 'setenta': 70, 'ochenta': 80, 'noventa': 90,
-        'cien': 100, 'ciento': 100, 'doscientos': 200, 'trescientos': 300,
-        'cuatrocientos': 400, 'quinientos': 500, 'seiscientos': 600,
-        'setecientos': 700, 'ochocientos': 800, 'novecientos': 900,
-        'mil': 1000, 'millón': 1000000, 'millones': 1000000
-      };
-
-      let palabras = texto.toLowerCase().replace(/ y /g, ' ').split(/\s+/);
-      let total = 0, actual = 0;
-
-      for (let palabra of palabras) {
-        let valor = mapa[palabra];
-        if (valor != null) {
-          if (valor === 1000 || valor === 1000000) {
-            actual = (actual || 1) * valor;
-            total += actual;
-            actual = 0;
-          } else {
-            actual += valor;
-          }
-        } else if (palabra.match(/^\d+$/)) {
-          total += parseInt(palabra);
-        }
-      }
-
-      return total + actual;
-    }
   </script>
 </body>
 </html>
-
-
